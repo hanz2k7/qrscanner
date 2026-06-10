@@ -3,49 +3,87 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Veletržní Skener</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <title>Veletržní Univerzální Skener</title>
+  <script src="[https://unpkg.com/html5-qrcode](https://unpkg.com/html5-qrcode)"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background-color: #f4f4f9; }
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background-color: #f4f4f9; color: #333; }
     #reader { width: 100%; max-width: 500px; margin: auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    #status { margin-top: 20px; font-weight: bold; color: #2c3e50; font-size: 1.2em; }
+    #status { margin-top: 20px; font-weight: bold; color: #2c3e50; font-size: 1.2em; min-height: 30px; }
+    .btn { background-color: #3498db; color: white; padding: 12px 24px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin: 10px; font-weight: bold; }
+    .btn-capture { background-color: #2ecc71; }
+    #file-input { display: none; }
+    .divider { margin: 20px auto; width: 80%; border-top: 1px solid #ccc; }
   </style>
 </head>
 <body>
 
-  <h2>📱 Veletržní Skener Kontaktu</h2>
+  <h2>📱 Veletržní Skener & AI OCR</h2>
+  
   <div id="reader"></div>
-  <div id="status">Hledám QR kód...</div>
+  
+  <div class="divider">NEBO</div>
+  
+  <div>
+    <button class="btn btn-capture" onclick="document.getElementById('file-input').click()">📸 Vyfotit papírovou vizitku</button>
+    <input type="file" id="file-input" accept="image/*" capture="environment" onchange="zpracujFoto(this)">
+  </div>
+
+  <div id="status">Hledám QR kód nebo čekám na fotku...</div>
 
   <script>
     let html5QrcodeScanner;
-    // Sem vložte URL adresu vašeho Google Apps Scriptu
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYT4TaQ56v5ZKiPPh1zgBI2jaShu0LwQTgL3PG_Fgi-4BeACewf_g4Bf4uUU_T0w/exec";
+    // SEM VLOŽTE URL ADRESU VAŠEHO GOOGLE APPS SCRIPTU Z ČÁSTI 1
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzystrWaC4ATUVXlY92sCyYVfd4Qbhyl-IiXU-vtMGzUC2cIEfOllh7TCDHn3n0ZL1v/exec";
 
+    // 1. Zpracování QR kódu
     function onScanSuccess(decodedText) {
       html5QrcodeScanner.clear().then(() => {
-        document.getElementById("status").innerText = "Odesílám do tabulky...";
+        document.getElementById("status").innerText = "Odesílám QR kód...";
+        posliData({ data: decodedText });
+      });
+    }
 
-        // Odeslání dat pomocí klasického POST požadavku bez omezení iframe
-        fetch(GOOGLE_SCRIPT_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: "data=" + encodeURIComponent(decodedText)
-        })
-        .then(() => {
-          document.getElementById("status").innerText = "Uloženo! Za chvíli skenujeme dál...";
-          setTimeout(startScanner, 2500);
-        })
-        .catch(err => {
-          document.getElementById("status").innerText = "Chyba při odesílání.";
-          setTimeout(startScanner, 2500);
-        });
+    // 2. Zpracování Foto vizitky
+    function zpracujFoto(input) {
+      if (!input.files || !input.files[0]) return;
+      document.getElementById("status").innerText = "Chroustám obrázek a posílám AI Gemini...";
+      
+      const file = input.files[0];
+      const reader = new FileReader();
+      
+      reader.onload = function(e) {
+        const base64Image = e.target.result.split(",")[1];
+        posliData({ image: base64Image });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Společná funkce pro odesílání
+    function posliData(payloadData) {
+      let formData = [];
+      for (let key in payloadData) {
+        formData.push(encodeURIComponent(key) + "=" + encodeURIComponent(payloadData[key]));
+      }
+      
+      fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData.join("&")
+      })
+      .then(() => {
+        document.getElementById("status").innerText = "Uloženo do tabulky!";
+        document.getElementById("file-input").value = "";
+        setTimeout(startScanner, 3000);
+      })
+      .catch(err => {
+        document.getElementById("status").innerText = "Chyba při odesílání dat.";
+        setTimeout(startScanner, 3000);
       });
     }
 
     function startScanner() {
-      document.getElementById("status").innerText = "Hledám QR kód...";
+      document.getElementById("status").innerText = "Připraven (QR nebo Foto)...";
       html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }, false);
       html5QrcodeScanner.render(onScanSuccess);
     }
