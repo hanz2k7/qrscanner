@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Veletržní Univerzální Skener</title>
-  <script src="[https://unpkg.com/html5-qrcode](https://unpkg.com/html5-qrcode)"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background-color: #f4f4f9; color: #333; }
-    #reader { width: 100%; max-width: 500px; margin: auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    #reader { width: 100%; max-width: 500px; margin: auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-height: 250px; }
     #status { margin-top: 20px; font-weight: bold; color: #2c3e50; font-size: 1.2em; min-height: 30px; }
     .btn { background-color: #3498db; color: white; padding: 12px 24px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin: 10px; font-weight: bold; }
     .btn-capture { background-color: #2ecc71; }
     #file-input { display: none; }
-    .divider { margin: 20px auto; width: 80%; border-top: 1px solid #ccc; }
+    .divider { margin: 20px auto; width: 80%; border-top: 1px solid #ccc; font-weight: bold; color: #777; }
   </style>
 </head>
 <body>
@@ -28,22 +28,25 @@
     <input type="file" id="file-input" accept="image/*" capture="environment" onchange="zpracujFoto(this)">
   </div>
 
-  <div id="status">Hledám QR kód nebo čekám na fotku...</div>
+  <div id="status">Spouštím kameru pro QR kódy...</div>
 
   <script>
     let html5QrcodeScanner;
-    // SEM VLOŽTE URL ADRESU VAŠEHO GOOGLE APPS SCRIPTU Z ČÁSTI 1
+    // Sem vložte URL adresu vašeho Google Apps Scriptu
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzystrWaC4ATUVXlY92sCyYVfd4Qbhyl-IiXU-vtMGzUC2cIEfOllh7TCDHn3n0ZL1v/exec";
 
-    // 1. Zpracování QR kódu
+    // 1. Zpracování úspěšného skenu QR kódu
     function onScanSuccess(decodedText) {
+      // Zastavíme skener, abychom neposílali data víckrát
       html5QrcodeScanner.clear().then(() => {
-        document.getElementById("status").innerText = "Odesílám QR kód...";
+        document.getElementById("status").innerText = "Odesílám QR kód do tabulky...";
+        posliData({ data: decodedText });
+      }).catch(err => {
         posliData({ data: decodedText });
       });
     }
 
-    // 2. Zpracování Foto vizitky
+    // 2. Zpracování Foto vizitky (Base64)
     function zpracujFoto(input) {
       if (!input.files || !input.files[0]) return;
       document.getElementById("status").innerText = "Chroustám obrázek a posílám AI Gemini...";
@@ -58,7 +61,7 @@
       reader.readAsDataURL(file);
     }
 
-    // Společná funkce pro odesílání
+    // Společná funkce pro odesílání na Google Script
     function posliData(payloadData) {
       let formData = [];
       for (let key in payloadData) {
@@ -73,8 +76,8 @@
       })
       .then(() => {
         document.getElementById("status").innerText = "Uloženo do tabulky!";
-        document.getElementById("file-input").value = "";
-        setTimeout(startScanner, 3000);
+        document.getElementById("file-input").value = ""; // Vyčistit zámek fotky
+        setTimeout(startScanner, 2500); // Po 2.5 sekundách znovu nahodit skener
       })
       .catch(err => {
         document.getElementById("status").innerText = "Chyba při odesílání dat.";
@@ -82,13 +85,28 @@
       });
     }
 
+    // Inicializace skeneru s lepší podporou mobilních kamer
     function startScanner() {
-      document.getElementById("status").innerText = "Připraven (QR nebo Foto)...";
-      html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }, false);
-      html5QrcodeScanner.render(onScanSuccess);
+      document.getElementById("status").innerText = "Hledám QR kód...";
+      
+      // Vytvoříme skener s povoleným výběrem kamer (experimentalFeatures)
+      html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", 
+        { 
+          fps: 10, 
+          qrbox: { width: 250, height: 250 },
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+        }, 
+        /* verbose= */ false
+      );
+      
+      html5QrcodeScanner.render(onScanSuccess, (errorMessage) => {
+        // Tady ignorujeme běžné chyby, kdy skener v daném snímku zrovna QR kód nenašel
+      });
     }
 
-    startScanner();
+    // Spustit při načtení
+    window.addEventListener('load', startScanner);
   </script>
 </body>
 </html>
