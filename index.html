@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veletržní Skener</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background-color: #f4f4f9; }
+    #reader { width: 100%; max-width: 500px; margin: auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    #status { margin-top: 20px; font-weight: bold; color: #2c3e50; font-size: 1.2em; }
+  </style>
+</head>
+<body>
+
+  <h2>📱 Veletržní Skener Kontaktu</h2>
+  <div id="reader"></div>
+  <div id="status">Hledám QR kód...</div>
+
+  <script>
+    let html5QrcodeScanner;
+    // Sem vložte URL adresu vašeho Google Apps Scriptu
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMYT4TaQ56v5ZKiPPh1zgBI2jaShu0LwQTgL3PG_Fgi-4BeACewf_g4Bf4uUU_T0w/exec";
+
+    function onScanSuccess(decodedText) {
+      html5QrcodeScanner.clear().then(() => {
+        document.getElementById("status").innerText = "Odesílám do tabulky...";
+
+        // Odeslání dat pomocí klasického POST požadavku bez omezení iframe
+        fetch(GOOGLE_SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "data=" + encodeURIComponent(decodedText)
+        })
+        .then(() => {
+          document.getElementById("status").innerText = "Uloženo! Za chvíli skenujeme dál...";
+          setTimeout(startScanner, 2500);
+        })
+        .catch(err => {
+          document.getElementById("status").innerText = "Chyba při odesílání.";
+          setTimeout(startScanner, 2500);
+        });
+      });
+    }
+
+    function startScanner() {
+      document.getElementById("status").innerText = "Hledám QR kód...";
+      html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }, false);
+      html5QrcodeScanner.render(onScanSuccess);
+    }
+
+    startScanner();
+  </script>
+</body>
+</html>
